@@ -5,6 +5,7 @@ import { calendar_v3 } from 'googleapis';
 import { buildSingleEventFieldMask } from "../../utils/field-mask-builder.js";
 import { createStructuredResponse } from "../../utils/response-builder.js";
 import { GetEventResponse, convertGoogleEventToStructured } from "../../types/structured-responses.js";
+import { applyEventFilters } from "../../filters/event-filter.js";
 
 interface GetEventArgs {
     calendarId: string;
@@ -32,6 +33,13 @@ export class GetEventHandler extends BaseToolHandler {
             const event = await this.getEvent(oauth2Client, argsWithResolvedCalendar);
 
             if (!event) {
+                throw new Error(`Event with ID '${validArgs.eventId}' not found in calendar '${resolvedCalendarId}'.`);
+            }
+
+            // Check single event against filters (attach calendarId so filters can scope by calendar)
+            const eventWithCalendar = { ...event, calendarId: resolvedCalendarId };
+            const { events: surviving } = applyEventFilters([eventWithCalendar], this.eventFilters);
+            if (surviving.length === 0) {
                 throw new Error(`Event with ID '${validArgs.eventId}' not found in calendar '${resolvedCalendarId}'.`);
             }
 

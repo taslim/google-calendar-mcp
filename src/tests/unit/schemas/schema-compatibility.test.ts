@@ -177,7 +177,7 @@ describe('Provider-Specific Schema Compatibility', () => {
       const issues: string[] = [];
 
       // Tools explicitly allowed to use anyOf for calendarId (multi-calendar support)
-      const multiCalendarTools = ['list-events', 'search-events'];
+      const multiCalendarTools = ['list-events', 'search-events', 'get-availability'];
 
       for (const tool of tools) {
         // Skip multi-calendar tools - they're explicitly allowed to use anyOf for calendarId
@@ -258,7 +258,7 @@ describe('Provider-Specific Schema Compatibility', () => {
     it('should test that all datetime fields have proper format', () => {
       const tools = ToolRegistry.getToolsWithSchemas();
 
-      const toolsWithDateTimeFields = ['list-events', 'search-events', 'create-event', 'update-event', 'get-freebusy'];
+      const toolsWithDateTimeFields = ['list-events', 'search-events', 'create-event', 'update-event', 'get-availability'];
 
       for (const tool of tools) {
         if (toolsWithDateTimeFields.includes(tool.name)) {
@@ -286,7 +286,7 @@ describe('Provider-Specific Schema Compatibility', () => {
     it('should validate array fields have proper items definition', () => {
       const tools = ToolRegistry.getToolsWithSchemas();
 
-      const toolsWithArrays = ['create-event', 'update-event', 'get-freebusy'];
+      const toolsWithArrays = ['create-event', 'update-event'];
 
       for (const tool of tools) {
         if (toolsWithArrays.includes(tool.name)) {

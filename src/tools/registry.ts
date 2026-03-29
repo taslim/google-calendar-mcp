@@ -14,7 +14,7 @@ import { CreateEventHandler } from "../handlers/core/CreateEventHandler.js";
 import { CreateEventsHandler } from "../handlers/core/CreateEventsHandler.js";
 import { UpdateEventHandler } from "../handlers/core/UpdateEventHandler.js";
 import { DeleteEventHandler } from "../handlers/core/DeleteEventHandler.js";
-import { FreeBusyEventHandler } from "../handlers/core/FreeBusyEventHandler.js";
+import { GetAvailabilityHandler } from "../handlers/core/GetAvailabilityHandler.js";
 import { GetCurrentTimeHandler } from "../handlers/core/GetCurrentTimeHandler.js";
 import { RespondToEventHandler } from "../handlers/core/RespondToEventHandler.js";
 
@@ -678,28 +678,28 @@ export const ToolSchemas = {
     )
   }),
 
-  'get-freebusy': z.object({
+  'get-availability': z.object({
     account: multiAccountSchema.describe(
       "Account nickname(s) to query (e.g., 'work' or ['work', 'personal']). Omit to query all accounts."
     ),
-    calendars: z.array(z.object({
-      id: z.string().describe("ID of the calendar (use 'primary' for the main calendar)")
-    })).describe(
-      "List of calendars and/or groups to query for free/busy information"
+    calendarId: z.preprocess(
+      parseJsonStringArray,
+      z.union([
+        z.string().describe("Calendar ID to check (use 'primary' for the main calendar)"),
+        z.array(z.string()).describe("Array of calendar IDs to check")
+      ])
+    ).optional().describe(
+      "Calendar ID(s) to check. Defaults to primary calendar if omitted. Accepts a single ID or array."
     ),
     timeMin: z.string()
       .refine(isValidIsoDateTime, "Must be ISO 8601 format: '2026-01-01T00:00:00'")
-      .describe("Start of time range (ISO 8601, e.g., '2024-01-01T00:00:00')."),
+      .describe("Start of availability window (ISO 8601, e.g., '2024-01-01T00:00:00')."),
     timeMax: z.string()
       .refine(isValidIsoDateTime, "Must be ISO 8601 format: '2026-01-01T00:00:00'")
-      .describe("End of time range (ISO 8601, e.g., '2024-01-31T23:59:59')."),
-    timeZone: z.string().optional().describe("IANA timezone for the query."),
-    groupExpansionMax: z.number().int().max(100).optional().describe(
-      "Maximum number of calendars to expand per group (max 100)"
+      .describe("End of availability window (ISO 8601, e.g., '2024-01-31T23:59:59')."),
+    timezone: z.string().optional().describe(
+      "IANA timezone for output formatting (e.g., 'America/Los_Angeles'). Defaults to primary calendar's timezone."
     ),
-    calendarExpansionMax: z.number().int().max(50).optional().describe(
-      "Maximum number of calendars to expand (max 50)"
-    )
   }),
   
   'get-current-time': z.object({
@@ -761,7 +761,7 @@ export type CreateEventInput = ToolInputs['create-event'];
 export type CreateEventsInput = ToolInputs['create-events'];
 export type UpdateEventInput = ToolInputs['update-event'];
 export type DeleteEventInput = ToolInputs['delete-event'];
-export type GetFreeBusyInput = ToolInputs['get-freebusy'];
+export type GetAvailabilityInput = ToolInputs['get-availability'];
 export type GetCurrentTimeInput = ToolInputs['get-current-time'];
 export type RespondToEventInput = ToolInputs['respond-to-event'];
 
@@ -904,10 +904,10 @@ export class ToolRegistry {
       handler: DeleteEventHandler
     },
     {
-      name: "get-freebusy",
-      description: "Query free/busy information for calendars. Note: Time range is limited to a maximum of 3 months between timeMin and timeMax.",
-      schema: ToolSchemas['get-freebusy'],
-      handler: FreeBusyEventHandler
+      name: "get-availability",
+      description: "Get unified availability across calendars. Fetches events, applies configured filters, then returns merged busy blocks and computed free slots. Use this instead of manually computing availability from list-events.",
+      schema: ToolSchemas['get-availability'],
+      handler: GetAvailabilityHandler
     },
     {
       name: "get-current-time",

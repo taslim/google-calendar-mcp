@@ -54,15 +54,26 @@ export function convertToRFC3339(datetime: string, fallbackTimezone: string): st
 }
 
 /**
- * Convert a local time in a specific timezone to UTC
+ * Convert a local time in a specific timezone to UTC.
+ *
+ * Uses Intl.DateTimeFormat to discover the UTC offset for the target timezone,
+ * avoiding host-local `new Date()` which would give wrong results when the
+ * server's timezone differs from `timezone`.
+ *
+ * @param year   Full year
+ * @param month  Zero-based month (0 = January)
+ * @param day    Day of month
+ * @param hour   Hour (0-23)
+ * @param minute Minute
+ * @param second Second
+ * @param timezone IANA timezone string
  */
-function convertLocalTimeToUTC(year: number, month: number, day: number, hour: number, minute: number, second: number, timezone: string): Date {
-    // Create a date that we'll use to find the correct UTC time
-    // Start with the assumption that it's in UTC
-    let testDate = new Date(Date.UTC(year, month, day, hour, minute, second));
-    
-    // Get what this UTC time looks like in the target timezone
-    const options: Intl.DateTimeFormatOptions = {
+export function convertLocalTimeToUTC(year: number, month: number, day: number, hour: number, minute: number, second: number, timezone: string): Date {
+    // Start with the same wall-clock time expressed as UTC
+    const testDate = new Date(Date.UTC(year, month, day, hour, minute, second));
+
+    // Find what that UTC instant looks like in the target timezone
+    const formatter = new Intl.DateTimeFormat('sv-SE', {
         timeZone: timezone,
         year: 'numeric',
         month: '2-digit',
@@ -70,24 +81,19 @@ function convertLocalTimeToUTC(year: number, month: number, day: number, hour: n
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
-        hour12: false
-    };
-    
-    // Format the test date in the target timezone
-    const formatter = new Intl.DateTimeFormat('sv-SE', options);
+        hour12: false,
+    });
     const formattedInTargetTZ = formatter.format(testDate);
-    
-    // Parse the formatted result to see what time it shows
+
     const [datePart, timePart] = formattedInTargetTZ.split(' ');
     const [targetYear, targetMonth, targetDay] = datePart.split('-').map(Number);
     const [targetHour, targetMinute, targetSecond] = timePart.split(':').map(Number);
-    
-    // Calculate the difference between what we want and what we got
-    const wantedTime = new Date(year, month, day, hour, minute, second).getTime();
-    const actualTime = new Date(targetYear, targetMonth - 1, targetDay, targetHour, targetMinute, targetSecond).getTime();
-    const offsetMs = wantedTime - actualTime;
-    
-    // Adjust the UTC time by the offset
+
+    // Compute offset using only UTC-based arithmetic (no host-local Date)
+    const wantedMs = Date.UTC(year, month, day, hour, minute, second);
+    const actualMs = Date.UTC(targetYear, targetMonth - 1, targetDay, targetHour, targetMinute, targetSecond);
+    const offsetMs = wantedMs - actualMs;
+
     return new Date(testDate.getTime() + offsetMs);
 }
 

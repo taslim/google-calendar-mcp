@@ -113,7 +113,7 @@ describe('Tool Filtering', () => {
       expect(toolNames).toContain('search-events');
       expect(toolNames).toContain('list-calendars');
       expect(toolNames).toContain('get-current-time');
-      expect(toolNames).toContain('get-freebusy');
+      expect(toolNames).toContain('get-availability');
       expect(toolNames).toContain('list-colors');
       expect(toolNames).toContain('respond-to-event');
     });

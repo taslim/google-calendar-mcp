@@ -1443,12 +1443,12 @@ describe('Google Calendar MCP - Direct Integration Tests', () => {
 
     describe('Free/Busy Queries', () => {
       it('should check availability for test calendar', async () => {
-        const startTime = testFactory.startTimer('get-freebusy');
+        const startTime = testFactory.startTimer('get-availability');
 
         try {
           const timeRanges = TestDataFactory.getTimeRanges();
           const result = await client.callTool({
-            name: 'get-freebusy',
+            name: 'get-availability',
             arguments: {
               calendars: [{ id: TEST_CALENDAR_ID }],
               timeMin: timeRanges.nextWeek.timeMin,
@@ -1457,7 +1457,7 @@ describe('Google Calendar MCP - Direct Integration Tests', () => {
             }
           });
 
-          testFactory.endTimer('get-freebusy', startTime, true);
+          testFactory.endTimer('get-availability', startTime, true);
           expect(TestDataFactory.validateEventResponse(result)).toBe(true);
 
           const response = JSON.parse((result.content as any)[0].text);
@@ -1466,7 +1466,7 @@ describe('Google Calendar MCP - Direct Integration Tests', () => {
           expect(response.calendars).toBeDefined();
           expect(typeof response.calendars).toBe('object');
         } catch (error) {
-          testFactory.endTimer('get-freebusy', startTime, false, String(error));
+          testFactory.endTimer('get-availability', startTime, false, String(error));
           throw error;
         }
       });

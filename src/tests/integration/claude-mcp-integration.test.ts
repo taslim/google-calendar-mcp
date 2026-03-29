@@ -335,7 +335,7 @@ describe('Claude + MCP Essential Tests', () => {
         {
           intent: 'availability',
           prompt: 'Am I free tomorrow afternoon?',
-          expectedTools: ['get-freebusy', 'list-events', 'get-current-time']
+          expectedTools: ['get-availability', 'list-events', 'get-current-time']
         }
       ];
 
@@ -474,7 +474,7 @@ describe('Claude + MCP Essential Tests', () => {
       // Claude should understand this requires checking multiple calendars
       const understoodMultiCalendar =
         response.toolCalls.some(tc =>
-          tc.name === 'get-freebusy' ||
+          tc.name === 'get-availability' ||
           tc.name === 'list-events' ||
           tc.name === 'list-calendars'
         ) ||
@@ -500,7 +500,7 @@ describe('Claude + MCP Essential Tests', () => {
 
       // Claude should use freebusy or list-events to check availability
       const usedAvailabilityTools = response.toolCalls.some(tc =>
-        tc.name === 'get-freebusy' ||
+        tc.name === 'get-availability' ||
         tc.name === 'list-events'
       );
 
@@ -527,7 +527,7 @@ describe('Claude + MCP Essential Tests', () => {
 
       // Should use conflict detection or availability checking tools
       const checkedConflicts =
-        toolNames.includes('get-freebusy') ||
+        toolNames.includes('get-availability') ||
         toolNames.includes('list-events') ||
         response.content.toLowerCase().includes('conflict') ||
         response.content.toLowerCase().includes('check');
@@ -624,7 +624,7 @@ describe('Claude + MCP Essential Tests', () => {
       const checkedSharedCalendar =
         response.toolCalls.some(tc =>
           tc.name === 'list-events' ||
-          tc.name === 'get-freebusy' ||
+          tc.name === 'get-availability' ||
           tc.name === 'list-calendars'
         ) ||
         response.content.toLowerCase().includes('shared') ||
@@ -665,7 +665,7 @@ describe('Claude + MCP Essential Tests', () => {
 
       const handledAvailabilityRequest =
         response.toolCalls.some(tc =>
-          tc.name === 'get-freebusy' ||
+          tc.name === 'get-availability' ||
           tc.name === 'list-events' ||
           tc.name === 'get-current-time'
         ) ||
@@ -686,7 +686,7 @@ describe('Claude + MCP Essential Tests', () => {
       const handledReschedule =
         response.toolCalls.some(tc =>
           tc.name === 'list-events' ||
-          tc.name === 'get-freebusy' ||
+          tc.name === 'get-availability' ||
           tc.name === 'search-events' ||
           tc.name === 'get-current-time' ||
           tc.name === 'update-event'
@@ -734,7 +734,7 @@ describe('Claude + MCP Essential Tests', () => {
       const handledExternalAttendee =
         response.toolCalls.some(tc =>
           tc.name === 'list-events' ||
-          tc.name === 'get-freebusy' ||
+          tc.name === 'get-availability' ||
           tc.name === 'create-event'
         ) ||
         response.content.toLowerCase().includes('attendee') ||

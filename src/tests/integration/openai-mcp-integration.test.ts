@@ -740,7 +740,7 @@ Please use the create-event tool to create this event.`
 
         // Should check free/busy or list events
         const availabilityCheck = response.executedResults.find(r =>
-          r.toolCall.name === 'get-freebusy' || r.toolCall.name === 'list-events' || r.toolCall.name === 'get-current-time'
+          r.toolCall.name === 'get-availability' || r.toolCall.name === 'list-events' || r.toolCall.name === 'get-current-time'
         );
         expect(availabilityCheck).toBeDefined();
         expect(availabilityCheck?.success).toBe(true);

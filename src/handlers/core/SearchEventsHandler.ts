@@ -6,6 +6,7 @@ import { calendar_v3 } from 'googleapis';
 import { buildListFieldMask } from "../../utils/field-mask-builder.js";
 import { createStructuredResponse } from "../../utils/response-builder.js";
 import { SearchEventsResponse, StructuredEvent, convertGoogleEventToStructured, ExtendedEvent } from "../../types/structured-responses.js";
+import { applyEventFilters } from "../../filters/event-filter.js";
 
 // Internal args type for searchEvents with single calendarId (after normalization)
 interface SearchEventsArgs {
@@ -94,21 +95,25 @@ export class SearchEventsHandler extends BaseToolHandler {
             })
         );
 
+        // Apply event filters (if configured)
+        const { events: filteredEvents, eventsFiltered } = applyEventFilters(allEvents, this.eventFilters);
+
         // Sort events chronologically
-        this.sortEventsByStartTime(allEvents);
+        this.sortEventsByStartTime(filteredEvents);
 
         // Convert to structured format
-        const structuredEvents: StructuredEvent[] = allEvents.map(event =>
+        const structuredEvents: StructuredEvent[] = filteredEvents.map(event =>
             convertGoogleEventToStructured(event, event.calendarId, event.accountId)
         );
 
         const response: SearchEventsResponse = {
             events: structuredEvents,
-            totalCount: allEvents.length,
+            totalCount: filteredEvents.length,
             query: validArgs.query,
             // For single calendar, include calendarId; for multiple, include calendars array
             ...(queriedCalendarIds.length === 1 && { calendarId: queriedCalendarIds[0] }),
             ...(queriedCalendarIds.length > 1 && { calendars: queriedCalendarIds }),
+            ...(eventsFiltered > 0 && { eventsFiltered }),
             ...(selectedAccounts.size > 1 && { accounts: Array.from(selectedAccounts.keys()) }),
             ...(resolutionWarnings.length > 0 && { warnings: resolutionWarnings })
         };

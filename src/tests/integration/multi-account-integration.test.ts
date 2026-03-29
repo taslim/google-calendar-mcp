@@ -464,7 +464,7 @@ describe('Google Calendar MCP - Multi-Account Integration Tests', () => {
       const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
       const result = await client.callTool({
-        name: 'get-freebusy',
+        name: 'get-availability',
         arguments: {
           timeMin: now.toISOString().slice(0, 19),
           timeMax: tomorrow.toISOString().slice(0, 19),

@@ -24,6 +24,9 @@ import { HttpTransportHandler, HttpTransportConfig } from './transports/http.js'
 // Import config
 import { ServerConfig } from './config/TransportConfig.js';
 
+// Import event filters
+import { EventFilter, loadEventFilters } from './filters/event-filter.js';
+
 // Read version from package.json
 const __server_dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_VERSION = JSON.parse(readFileSync(join(__server_dirname, '..', 'package.json'), 'utf-8')).version;
@@ -35,6 +38,7 @@ export class GoogleCalendarMcpServer {
   private authServer!: AuthServer;
   private config: ServerConfig;
   private accounts!: Map<string, OAuth2Client>;
+  private eventFilters: EventFilter[] = [];
 
   constructor(config: ServerConfig) {
     this.config = config;
@@ -56,10 +60,13 @@ export class GoogleCalendarMcpServer {
     // 3. Handle startup authentication based on transport type
     await this.handleStartupAuthentication();
 
-    // 4. Set up Modern Tool Definitions
+    // 4. Load event filters (if configured)
+    this.eventFilters = loadEventFilters(this.config.eventFilterConfig);
+
+    // 5. Set up Modern Tool Definitions
     this.registerTools();
 
-    // 5. Set up Graceful Shutdown
+    // 6. Set up Graceful Shutdown
     this.setupGracefulShutdown();
   }
 
@@ -197,6 +204,8 @@ export class GoogleCalendarMcpServer {
 
   private async executeWithHandler(handler: any, args: any): Promise<{ content: Array<{ type: "text"; text: string }> }> {
     await this.ensureAuthenticated();
+
+    handler.eventFilters = this.eventFilters;
 
     const result = await handler.runTool(args, this.accounts);
     return result;

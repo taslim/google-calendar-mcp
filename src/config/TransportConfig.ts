@@ -8,6 +8,8 @@ export interface ServerConfig {
   transport: TransportConfig;
   debug?: boolean;
   enabledTools?: string[];
+  /** Path to JSON file containing eventFilters configuration. */
+  eventFilterConfig?: string;
 }
 
 function parseEnabledTools(value: string | undefined, source: string): string[] | undefined {
@@ -33,7 +35,8 @@ export function parseArgs(args: string[]): ServerConfig {
       host: process.env.HOST || '127.0.0.1'
     },
     debug: process.env.DEBUG === 'true' || false,
-    enabledTools: parseEnabledTools(process.env.ENABLED_TOOLS, 'ENABLED_TOOLS')
+    enabledTools: parseEnabledTools(process.env.ENABLED_TOOLS, 'ENABLED_TOOLS'),
+    eventFilterConfig: process.env.EVENT_FILTER_CONFIG || undefined
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -63,6 +66,9 @@ export function parseArgs(args: string[]): ServerConfig {
         }
         config.enabledTools = parseEnabledTools(enabledTools, '--enable-tools');
         break;
+      case '--event-filter-config':
+        config.eventFilterConfig = args[++i];
+        break;
       case '--help':
         process.stderr.write(`
 Google Calendar MCP Server
@@ -75,6 +81,7 @@ Options:
   --host <string>          Host for HTTP transport (default: 127.0.0.1)
   --debug                  Enable debug logging
   --enable-tools <list>    Comma-separated list of tools to enable (whitelist)
+  --event-filter-config <path>  Path to JSON file with event filter rules
   --help                   Show this help message
 
 Environment Variables:
@@ -83,6 +90,7 @@ Environment Variables:
   HOST                   Host for HTTP transport
   DEBUG                  Enable debug logging (true/false)
   ENABLED_TOOLS          Comma-separated list of tools to enable
+  EVENT_FILTER_CONFIG    Path to JSON file with event filter rules
 
 Examples:
   node build/index.js                              # stdio (local use)

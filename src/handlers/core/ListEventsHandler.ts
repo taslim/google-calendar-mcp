@@ -6,6 +6,7 @@ import { BatchRequestHandler } from "./BatchRequestHandler.js";
 import { buildListFieldMask } from "../../utils/field-mask-builder.js";
 import { createStructuredResponse } from "../../utils/response-builder.js";
 import { ListEventsResponse, StructuredEvent, convertGoogleEventToStructured, ExtendedEvent } from "../../types/structured-responses.js";
+import { applyEventFilters } from "../../filters/event-filter.js";
 
 interface ListEventsArgs {
   calendarId: string | string[];
@@ -98,8 +99,11 @@ export class ListEventsHandler extends BaseToolHandler {
         );
 
         // Flatten and merge all events and calendar IDs
-        const allEvents = eventsPerAccount.flatMap(result => result.events);
+        const allEventsRaw = eventsPerAccount.flatMap(result => result.events);
         const allQueriedCalendarIds = [...new Set(eventsPerAccount.flatMap(result => result.calendarIds))];
+
+        // Apply event filters (if configured)
+        const { events: allEvents, eventsFiltered } = applyEventFilters(allEventsRaw, this.eventFilters);
 
         // Sort events chronologically
         this.sortEventsByStartTime(allEvents);
@@ -132,6 +136,7 @@ export class ListEventsHandler extends BaseToolHandler {
             events: structuredEvents,
             totalCount: allEvents.length,
             calendars: allQueriedCalendarIds.length > 1 ? allQueriedCalendarIds : undefined,
+            ...(eventsFiltered > 0 && { eventsFiltered }),
             ...(partialFailures.length > 0 && { partialFailures }),
             ...(warnings.length > 0 && { warnings }),
             ...(selectedAccounts.size > 1 && { accounts: Array.from(selectedAccounts.keys()) }),

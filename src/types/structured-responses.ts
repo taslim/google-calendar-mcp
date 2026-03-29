@@ -228,6 +228,8 @@ export interface ListEventsResponse {
   events: StructuredEvent[];
   totalCount: number;
   calendars?: string[];
+  /** Number of events removed by server-side event filters. */
+  eventsFiltered?: number;
   accounts?: string[];
   note?: string;
   warnings?: string[];
@@ -246,6 +248,8 @@ export interface SearchEventsResponse {
   query: string;
   calendarId?: string;
   calendars?: string[];
+  /** Number of events removed by server-side event filters. */
+  eventsFiltered?: number;
   accounts?: string[];
   timeRange?: {
     start: string;
@@ -396,6 +400,45 @@ export interface FreeBusyResponse {
       reason?: string;
     }>;
   }>;
+}
+
+/**
+ * A busy time block with calendar context and day information.
+ * Used in the get-availability response.
+ */
+export interface BusyBlock {
+  start: string;
+  end: string;
+  day: string;
+  label: string;
+  calendarId: string;
+  isAllDay: boolean;
+}
+
+/**
+ * A free time slot with human-readable day information.
+ * Used in the get-availability response.
+ */
+export interface FreeBlock {
+  start: string;
+  end: string;
+  day: string;
+  label: string;
+}
+
+/**
+ * Response format for unified availability queries.
+ * Returns merged busy blocks and computed free slots across calendars.
+ */
+export interface GetAvailabilityResponse {
+  timezone: string;
+  window: { start: string; end: string };
+  busy: BusyBlock[];
+  free: FreeBlock[];
+  calendars_checked: string[];
+  events_filtered: number;
+  errors?: Array<{ calendarId: string; error: string }>;
+  warnings?: string[];
 }
 
 /**

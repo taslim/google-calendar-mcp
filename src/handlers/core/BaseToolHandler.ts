@@ -6,10 +6,13 @@ import { getCredentialsProjectId } from "../../auth/utils.js";
 import { CalendarRegistry } from "../../services/CalendarRegistry.js";
 import { validateAccountId } from "../../auth/paths.js";
 import { convertToRFC3339 } from "../../utils/datetime.js";
+import { EventFilter } from "../../filters/event-filter.js";
 
 
 export abstract class BaseToolHandler<TArgs = any> {
     protected calendarRegistry: CalendarRegistry = CalendarRegistry.getInstance();
+    /** Event filters injected by the server before runTool. Empty when unconfigured. */
+    eventFilters: EventFilter[] = [];
 
     abstract runTool(args: TArgs, accounts: Map<string, OAuth2Client>): Promise<CallToolResult>;
 

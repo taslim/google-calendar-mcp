@@ -107,6 +107,7 @@ Commands:
 
 Options:
   --enable-tools <list>   Comma-separated list of tools to enable (whitelist)
+  --event-filter-config <path>  Path to JSON file with event filter rules
 
 Examples:
   npx @cocal/google-calendar-mcp auth              # Authenticate default account
@@ -146,7 +147,7 @@ function parseCliArgs(): { command: string | undefined; accountId: string | unde
     }
 
     // Skip transport options and their values
-    if (arg === '--transport' || arg === '--port' || arg === '--host' || arg === '--enable-tools') {
+    if (arg === '--transport' || arg === '--port' || arg === '--host' || arg === '--enable-tools' || arg === '--event-filter-config') {
       i++; // Skip the next argument (the value)
       continue;
     }
