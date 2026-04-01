@@ -25,6 +25,7 @@ interface GetAvailabilityArgs {
  */
 interface SlimEvent {
     id: string;
+    recurringEventId?: string;
     calendarId: string;
     start: string;
     end: string;
@@ -35,7 +36,7 @@ interface SlimEvent {
 }
 
 /** Minimal field mask for slim event fetching. */
-const SLIM_FIELDS = 'items(id,status,start,end,transparency,attendees(self,responseStatus),extendedProperties),nextPageToken';
+const SLIM_FIELDS = 'items(id,recurringEventId,status,start,end,transparency,attendees(self,responseStatus),extendedProperties),nextPageToken';
 
 /**
  * Checks whether the authenticated user has declined an event.
@@ -304,6 +305,7 @@ export class GetAvailabilityHandler extends BaseToolHandler {
 
                 results.push({
                     id: event.id,
+                    ...(event.recurringEventId && { recurringEventId: event.recurringEventId }),
                     calendarId,
                     start,
                     end,
