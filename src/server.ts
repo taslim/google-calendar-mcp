@@ -6,7 +6,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 // Import authentication components
-import { initializeOAuth2Client } from './auth/client.js';
+import { initializeOAuth2Client, isServiceAccountMode } from './auth/client.js';
 import { AuthServer } from './auth/server.js';
 import { TokenManager } from './auth/tokenManager.js';
 
@@ -34,8 +34,8 @@ const SERVER_VERSION = JSON.parse(readFileSync(join(__server_dirname, '..', 'pac
 export class GoogleCalendarMcpServer {
   private server: McpServer;
   private oauth2Client!: OAuth2Client;
-  private tokenManager!: TokenManager;
-  private authServer!: AuthServer;
+  private tokenManager: TokenManager | null = null;
+  private authServer: AuthServer | null = null;
   private config: ServerConfig;
   private accounts!: Map<string, OAuth2Client>;
   private eventFilters: EventFilter[] = [];
@@ -49,16 +49,17 @@ export class GoogleCalendarMcpServer {
   }
 
   async initialize(): Promise<void> {
-    // 1. Initialize Authentication (but don't block on it)
+    // 1. Initialize Authentication
     this.oauth2Client = await initializeOAuth2Client();
-    this.tokenManager = new TokenManager(this.oauth2Client);
-    this.authServer = new AuthServer(this.oauth2Client);
 
-    // 2. Load all authenticated accounts
-    this.accounts = await this.tokenManager.loadAllAccounts();
-
-    // 3. Handle startup authentication based on transport type
-    await this.handleStartupAuthentication();
+    if (isServiceAccountMode()) {
+      this.accounts = new Map([['default', this.oauth2Client]]);
+    } else {
+      this.tokenManager = new TokenManager(this.oauth2Client);
+      this.authServer = new AuthServer(this.oauth2Client);
+      this.accounts = await this.tokenManager.loadAllAccounts();
+      await this.handleStartupAuthentication();
+    }
 
     // 4. Load event filters (if configured)
     this.eventFilters = loadEventFilters(this.config.eventFilterConfig);
@@ -115,8 +116,11 @@ export class GoogleCalendarMcpServer {
   private registerTools(): void {
     ToolRegistry.registerAll(this.server, this.executeWithHandler.bind(this), this.config);
 
-    // Register account management tools separately (they need special context)
-    this.registerAccountManagementTools();
+    // Register account management tools separately (they need special context).
+    // Skip in SA mode — account management doesn't apply.
+    if (!isServiceAccountMode()) {
+      this.registerAccountManagementTools();
+    }
   }
 
   /**
@@ -158,6 +162,7 @@ export class GoogleCalendarMcpServer {
   }
 
   private async ensureAuthenticated(): Promise<void> {
+    if (!this.tokenManager) return; // SA mode — accounts set at init
     const availableAccounts = await this.tokenManager.loadAllAccounts();
     if (availableAccounts.size > 0) {
       this.accounts = availableAccounts;
@@ -226,7 +231,7 @@ export class GoogleCalendarMcpServer {
         const httpHandler = new HttpTransportHandler(
           this.server,
           httpConfig,
-          this.tokenManager
+          this.tokenManager!
         );
         await httpHandler.connect();
         break;
