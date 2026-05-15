@@ -6,6 +6,7 @@ import { buildSingleEventFieldMask } from "../../utils/field-mask-builder.js";
 import { createStructuredResponse } from "../../utils/response-builder.js";
 import { GetEventResponse, convertGoogleEventToStructured } from "../../types/structured-responses.js";
 import { applyEventFilters } from "../../filters/event-filter.js";
+import { resolvePrimaryAlias } from "../../config/principal-calendars.js";
 
 interface GetEventArgs {
     calendarId: string;
@@ -17,6 +18,8 @@ interface GetEventArgs {
 export class GetEventHandler extends BaseToolHandler {
     async runTool(args: GetEventArgs, accounts: Map<string, OAuth2Client>): Promise<CallToolResult> {
         const validArgs = args;
+
+        validArgs.calendarId = resolvePrimaryAlias(validArgs.calendarId);
 
         // Get OAuth2Client with automatic account selection for read operations
         // Also resolves calendar name to ID if a name was provided

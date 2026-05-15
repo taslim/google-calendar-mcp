@@ -5,6 +5,7 @@ import { calendar_v3 } from 'googleapis';
 import { createStructuredResponse } from "../../utils/response-builder.js";
 import { RespondToEventResponse, convertGoogleEventToStructured } from "../../types/structured-responses.js";
 import { RecurringEventHelpers, RecurringEventError, RECURRING_EVENT_ERRORS } from './RecurringEventHelpers.js';
+import { resolvePrimaryAlias } from "../../config/principal-calendars.js";
 
 export type RespondToEventInput = {
     calendarId: string;
@@ -20,6 +21,8 @@ export type RespondToEventInput = {
 export class RespondToEventHandler extends BaseToolHandler {
     async runTool(args: RespondToEventInput, accounts: Map<string, OAuth2Client>): Promise<CallToolResult> {
         const validArgs = args;
+
+        validArgs.calendarId = resolvePrimaryAlias(validArgs.calendarId);
 
         // Setup write operation: get client, calendar API, and resolve calendar name to ID
         const { calendar, accountId: selectedAccountId, calendarId: resolvedCalendarId } =

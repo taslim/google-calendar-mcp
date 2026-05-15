@@ -4,10 +4,14 @@ import { BaseToolHandler } from "./BaseToolHandler.js";
 import { DeleteEventInput } from "../../tools/registry.js";
 import { DeleteEventResponse } from "../../types/structured-responses.js";
 import { createStructuredResponse } from "../../utils/response-builder.js";
+import { assertWriteCalendarId, resolvePrimaryAlias } from "../../config/principal-calendars.js";
 
 export class DeleteEventHandler extends BaseToolHandler {
     async runTool(args: any, accounts: Map<string, OAuth2Client>): Promise<CallToolResult> {
         const validArgs = args as DeleteEventInput;
+
+        assertWriteCalendarId(validArgs.calendarId);
+        validArgs.calendarId = resolvePrimaryAlias(validArgs.calendarId);
 
         // Get OAuth2Client with automatic account selection for write operations
         // Also resolves calendar name to ID if a name was provided

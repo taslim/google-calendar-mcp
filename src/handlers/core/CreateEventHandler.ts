@@ -9,17 +9,21 @@ import { ConflictDetectionService } from "../../services/conflict-detection/inde
 import { CONFLICT_DETECTION_CONFIG } from "../../services/conflict-detection/config.js";
 import { createStructuredResponse, convertConflictsToStructured, createWarningsArray } from "../../utils/response-builder.js";
 import { CreateEventResponse, convertGoogleEventToStructured } from "../../types/structured-responses.js";
+import { assertWriteCalendarId, resolvePrimaryAlias } from "../../config/principal-calendars.js";
 
 export class CreateEventHandler extends BaseToolHandler {
     private conflictDetectionService: ConflictDetectionService;
-    
+
     constructor() {
         super();
         this.conflictDetectionService = new ConflictDetectionService();
     }
-    
+
     async runTool(args: any, accounts: Map<string, OAuth2Client>): Promise<CallToolResult> {
         const validArgs = args as CreateEventInput;
+
+        assertWriteCalendarId(validArgs.calendarId);
+        validArgs.calendarId = resolvePrimaryAlias(validArgs.calendarId);
 
         // Get OAuth2Client with automatic account selection for write operations
         // Also resolves calendar name to ID if a name was provided

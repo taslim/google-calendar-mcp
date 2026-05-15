@@ -249,7 +249,7 @@ export const ToolSchemas = {
     account: multiAccountSchema,
     calendarId: z.union([
       z.string().describe(
-        "Calendar identifier(s) to query. Accepts calendar IDs (e.g., 'primary', 'user@gmail.com') OR calendar names (e.g., 'Work', 'Personal'). Single calendar: 'primary'. Multiple calendars: array ['Work', 'Personal'] or JSON string '[\"Work\", \"Personal\"]'"
+        "Calendar identifier(s) to query. Accepts calendar IDs (e.g., 'user@gmail.com') OR calendar names (e.g., 'Work', 'Personal'). Single calendar: 'user@gmail.com'. Multiple calendars: array ['Work', 'Personal'] or JSON string '[\"Work\", \"Personal\"]'"
       ),
       z.array(z.string().min(1))
         .min(1, "At least one calendar ID is required")
@@ -272,7 +272,7 @@ export const ToolSchemas = {
     account: multiAccountSchema,
     calendarId: z.union([
       z.string().describe(
-        "Calendar identifier(s) to search. Accepts calendar IDs (e.g., 'primary', 'user@gmail.com') OR calendar names (e.g., 'Work', 'Personal'). Single calendar: 'primary'. Multiple calendars: array ['Work', 'Personal'] or JSON string '[\"Work\", \"Personal\"]'"
+        "Calendar identifier(s) to search. Accepts calendar IDs (e.g., 'user@gmail.com') OR calendar names (e.g., 'Work', 'Personal'). Single calendar: 'user@gmail.com'. Multiple calendars: array ['Work', 'Personal'] or JSON string '[\"Work\", \"Personal\"]'"
       ),
       z.array(z.string())
     ]).transform((val) => {
@@ -317,7 +317,7 @@ export const ToolSchemas = {
   
   'get-event': z.object({
     account: singleAccountSchema,
-    calendarId: z.string().describe("ID of the calendar (use 'primary' for the main calendar)"),
+    calendarId: z.string().describe("Calendar ID (typically an email address, e.g. 'user@example.com')."),
     eventId: z.string().describe("ID of the event to retrieve"),
     fields: z.array(z.enum(ALLOWED_EVENT_FIELDS)).optional().describe(
       "Optional array of additional event fields to retrieve. Available fields are strictly validated. Default fields (id, summary, start, end, status, htmlLink, location, attendees) are always included."
@@ -330,7 +330,7 @@ export const ToolSchemas = {
 
   'create-event': z.object({
     account: singleAccountSchema,
-    calendarId: z.string().describe("ID of the calendar (use 'primary' for the main calendar)"),
+    calendarId: z.string().describe("Calendar ID (typically an email address, e.g. 'user@example.com')."),
     eventId: z.string().optional().describe("Optional custom event ID (5-1024 characters, base32hex encoding: lowercase letters a-v and digits 0-9 only). If not provided, Google Calendar will generate one."),
     summary: z.string().describe("Title of the event"),
     description: z.string().optional().describe("Description/notes for the event"),
@@ -489,7 +489,7 @@ export const ToolSchemas = {
       .optional()
       .describe("Default account for all events. Individual events can override this."),
     calendarId: z.string().optional().describe(
-      "Default calendar ID for all events (use 'primary' for the main calendar). Individual events can override this. Defaults to 'primary' if not specified."
+      "Default calendar ID (email address) for all events. Individual events can override this."
     ),
     timeZone: z.string().optional().describe(
       "Default IANA timezone for all events (e.g., 'America/Los_Angeles'). Individual events can override this."
@@ -555,7 +555,7 @@ export const ToolSchemas = {
 
   'update-event': z.object({
     account: singleAccountSchema,
-    calendarId: z.string().describe("ID of the calendar (use 'primary' for the main calendar)"),
+    calendarId: z.string().describe("Calendar ID (typically an email address, e.g. 'user@example.com')."),
     eventId: z.string().describe("ID of the event to update"),
     summary: z.string().optional().describe("Updated title of the event"),
     description: z.string().optional().describe("Updated description/notes"),
@@ -671,7 +671,7 @@ export const ToolSchemas = {
   
   'delete-event': z.object({
     account: singleAccountSchema,
-    calendarId: z.string().describe("ID of the calendar (use 'primary' for the main calendar)"),
+    calendarId: z.string().describe("Calendar ID (typically an email address, e.g. 'user@example.com')."),
     eventId: z.string().describe("ID of the event to delete"),
     sendUpdates: z.enum(SEND_UPDATES_VALUES).default("all").describe(
       "Whether to send cancellation notifications"
@@ -685,11 +685,11 @@ export const ToolSchemas = {
     calendarId: z.preprocess(
       parseJsonStringArray,
       z.union([
-        z.string().describe("Calendar ID to check (use 'primary' for the main calendar)"),
+        z.string().describe("Calendar ID (email address) to check"),
         z.array(z.string()).describe("Array of calendar IDs to check")
       ])
     ).optional().describe(
-      "Calendar ID(s) to check. Defaults to primary calendar if omitted. Accepts a single ID or array."
+      "Calendar ID(s) to check. Accepts a single ID or array. When omitted, defaults to the server's configured principal calendars (if any); otherwise to the authenticated user's primary calendar."
     ),
     timeMin: z.string()
       .refine(isValidIsoDateTime, "Must be ISO 8601 format: '2026-01-01T00:00:00'")
@@ -710,7 +710,7 @@ export const ToolSchemas = {
   }),
 
   'respond-to-event': z.object({
-    calendarId: z.string().describe("ID of the calendar (use 'primary' for the main calendar)"),
+    calendarId: z.string().describe("Calendar ID (typically an email address, e.g. 'user@example.com')."),
     eventId: z.string().describe("ID of the event to respond to"),
     account: z.string().optional().describe(
       "Account nickname to use for this operation (e.g., 'work', 'personal'). Optional when only one account is connected - will auto-select the account with appropriate permissions. Use 'list-calendars' to see available accounts."

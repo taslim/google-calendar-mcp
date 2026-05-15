@@ -6,6 +6,7 @@ import type { calendar_v3 } from 'googleapis';
 import { createTimeObject } from "../../utils/datetime.js";
 import { createStructuredResponse } from "../../utils/response-builder.js";
 import { CreateEventsResponse, convertGoogleEventToStructured, StructuredEvent } from "../../types/structured-responses.js";
+import { assertWriteCalendarId, isPrincipalMode, resolvePrimaryAlias } from "../../config/principal-calendars.js";
 
 export class CreateEventsHandler extends BaseToolHandler {
     async runTool(args: any, accounts: Map<string, OAuth2Client>): Promise<CallToolResult> {
@@ -17,15 +18,21 @@ export class CreateEventsHandler extends BaseToolHandler {
             sendUpdates: validArgs.sendUpdates,
         };
 
-        // Pre-validate shared defaults: resolve account and calendar once before the loop
-        const defaultAccount = sharedDefaults.account;
-        const defaultCalendarId = sharedDefaults.calendarId ?? 'primary';
+        // Fail before any writes happen if any event lacks a calendarId.
+        if (isPrincipalMode()) {
+            if (sharedDefaults.calendarId) {
+                sharedDefaults.calendarId = resolvePrimaryAlias(sharedDefaults.calendarId);
+            }
+            for (const event of validArgs.events) {
+                assertWriteCalendarId(event.calendarId ?? sharedDefaults.calendarId);
+                if (event.calendarId) event.calendarId = resolvePrimaryAlias(event.calendarId);
+            }
+        }
 
-        // Fail fast: validate default account/OAuth before iterating
+        const defaultAccount = sharedDefaults.account;
         const hasPerEventAccountOverrides = validArgs.events.some(e => e.account);
-        if (!hasPerEventAccountOverrides) {
-            // All events will use the shared account — validate it once upfront
-            await this.getClientWithAutoSelection(defaultAccount, defaultCalendarId, accounts, 'write');
+        if (!hasPerEventAccountOverrides && sharedDefaults.calendarId) {
+            await this.getClientWithAutoSelection(defaultAccount, sharedDefaults.calendarId, accounts, 'write');
         }
 
         // Caches per unique (account, calendarId) pair
@@ -44,8 +51,9 @@ export class CreateEventsHandler extends BaseToolHandler {
         for (let i = 0; i < validArgs.events.length; i++) {
             const eventInput = validArgs.events[i];
 
-            // Merge shared defaults with per-event overrides
             const account = eventInput.account ?? sharedDefaults.account;
+            // 'primary' fallback only fires outside principal mode; the pre-flight
+            // above already rejected unset calendarId when principal mode is on.
             const calendarId = eventInput.calendarId ?? sharedDefaults.calendarId ?? 'primary';
             const timeZone = eventInput.timeZone ?? sharedDefaults.timeZone;
             const sendUpdates = eventInput.sendUpdates ?? sharedDefaults.sendUpdates;

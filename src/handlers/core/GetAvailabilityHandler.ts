@@ -5,6 +5,7 @@ import { calendar_v3 } from 'googleapis';
 import { applyEventFilters } from "../../filters/event-filter.js";
 import { createStructuredResponse } from "../../utils/response-builder.js";
 import { convertToRFC3339, convertLocalTimeToUTC } from "../../utils/datetime.js";
+import { getPrincipalCalendars, isPrincipalMode, PRIMARY_ALIAS, resolvePrimaryAlias } from "../../config/principal-calendars.js";
 import {
     GetAvailabilityResponse,
     BusyBlock,
@@ -170,18 +171,15 @@ export class GetAvailabilityHandler extends BaseToolHandler {
         const timeMin = convertToRFC3339(args.timeMin, tz);
         const timeMax = convertToRFC3339(args.timeMax, tz);
 
-        const calendarIds = this.normalizeCalendarIds(args.calendarId);
+        const requestedIds = this.normalizeCalendarIds(args.calendarId).map(resolvePrimaryAlias);
+        const defaultIds = isPrincipalMode() ? getPrincipalCalendars() : [PRIMARY_ALIAS];
+        const calendarIds = requestedIds.length > 0 ? requestedIds : defaultIds;
+
         let accountCalendarMap: Map<string, string[]>;
         const resolutionWarnings: string[] = [];
 
-        if (selectedAccounts.size > 1 || (calendarIds.length > 0 && calendarIds.some(id => id !== 'primary' && !id.includes('@')))) {
-            if (calendarIds.length === 0) {
-                // No calendar IDs specified -- query primary on every account
-                accountCalendarMap = new Map<string, string[]>();
-                for (const accountId of selectedAccounts.keys()) {
-                    accountCalendarMap.set(accountId, ['primary']);
-                }
-            } else if (selectedAccounts.size > 1) {
+        if (selectedAccounts.size > 1 || calendarIds.some(id => id !== 'primary' && !id.includes('@'))) {
+            if (selectedAccounts.size > 1) {
                 const { resolved, warnings } = await this.calendarRegistry.resolveCalendarsToAccounts(
                     calendarIds,
                     selectedAccounts,
@@ -200,9 +198,8 @@ export class GetAvailabilityHandler extends BaseToolHandler {
                 accountCalendarMap = new Map([[accountId, resolvedIds]]);
             }
         } else {
-            // Simple case: single account, IDs already look like IDs (or nothing specified)
             const [accountId] = selectedAccounts.keys();
-            accountCalendarMap = new Map([[accountId, calendarIds.length > 0 ? calendarIds : ['primary']]]);
+            accountCalendarMap = new Map([[accountId, calendarIds]]);
         }
 
         // Fetch slim events from all accounts/calendars

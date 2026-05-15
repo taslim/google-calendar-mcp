@@ -7,6 +7,7 @@ import { buildListFieldMask } from "../../utils/field-mask-builder.js";
 import { createStructuredResponse } from "../../utils/response-builder.js";
 import { SearchEventsResponse, StructuredEvent, convertGoogleEventToStructured, ExtendedEvent } from "../../types/structured-responses.js";
 import { applyEventFilters } from "../../filters/event-filter.js";
+import { resolvePrimaryAlias } from "../../config/principal-calendars.js";
 
 // Internal args type for searchEvents with single calendarId (after normalization)
 interface SearchEventsArgs {
@@ -24,10 +25,10 @@ export class SearchEventsHandler extends BaseToolHandler {
     async runTool(args: any, accounts: Map<string, OAuth2Client>): Promise<CallToolResult> {
         const validArgs = args as SearchEventsInput;
 
-        // Normalize calendarId to always be an array for consistent processing
-        const calendarNamesOrIds = Array.isArray(validArgs.calendarId)
+        const calendarNamesOrIds = (Array.isArray(validArgs.calendarId)
             ? validArgs.calendarId
-            : [validArgs.calendarId];
+            : [validArgs.calendarId]
+        ).map(resolvePrimaryAlias);
 
         // Get clients for specified accounts (supports single or multiple)
         const selectedAccounts = this.getClientsForAccounts(args.account, accounts);

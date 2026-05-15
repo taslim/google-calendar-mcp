@@ -11,10 +11,11 @@ import {
     convertConflictsToStructured,
     createWarningsArray
 } from "../../utils/response-builder.js";
-import { 
+import {
     UpdateEventResponse,
-    convertGoogleEventToStructured 
+    convertGoogleEventToStructured
 } from "../../types/structured-responses.js";
+import { assertWriteCalendarId, resolvePrimaryAlias } from "../../config/principal-calendars.js";
 
 export class UpdateEventHandler extends BaseToolHandler {
     private conflictDetectionService: ConflictDetectionService;
@@ -26,6 +27,9 @@ export class UpdateEventHandler extends BaseToolHandler {
 
     async runTool(args: any, accounts: Map<string, OAuth2Client>): Promise<CallToolResult> {
         const validArgs = args as UpdateEventInput;
+
+        assertWriteCalendarId(validArgs.calendarId);
+        validArgs.calendarId = resolvePrimaryAlias(validArgs.calendarId);
 
         // Setup write operation: get client, calendar API, and resolve calendar name to ID
         const { client: oauth2Client, calendar, accountId: selectedAccountId, calendarId: resolvedCalendarId } =

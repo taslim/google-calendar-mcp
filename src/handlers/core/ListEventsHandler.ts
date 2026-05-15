@@ -7,6 +7,7 @@ import { buildListFieldMask } from "../../utils/field-mask-builder.js";
 import { createStructuredResponse } from "../../utils/response-builder.js";
 import { ListEventsResponse, StructuredEvent, convertGoogleEventToStructured, ExtendedEvent } from "../../types/structured-responses.js";
 import { applyEventFilters } from "../../filters/event-filter.js";
+import { resolvePrimaryAlias } from "../../config/principal-calendars.js";
 
 interface ListEventsArgs {
   calendarId: string | string[];
@@ -26,10 +27,10 @@ export class ListEventsHandler extends BaseToolHandler {
         const partialFailures: Array<{ accountId: string; reason: string }> = [];
         const resolutionWarnings: string[] = [];
 
-        // Normalize calendarId to always be an array for consistent processing
-        const calendarNamesOrIds = Array.isArray(args.calendarId)
+        const calendarNamesOrIds = (Array.isArray(args.calendarId)
             ? args.calendarId
-            : [args.calendarId];
+            : [args.calendarId]
+        ).map(resolvePrimaryAlias);
 
         // For multi-account queries, pre-resolve calendars to their owning accounts
         // This prevents "calendar not found" errors when a calendar only exists on some accounts
