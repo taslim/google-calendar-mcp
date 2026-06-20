@@ -212,6 +212,7 @@ Thanks! – Nate
 **Environment Variables:**
 - `GOOGLE_OAUTH_CREDENTIALS` - Path to OAuth credentials file
 - `GOOGLE_CALENDAR_MCP_TOKEN_PATH` - Custom token storage location (optional)
+- `GOOGLE_CALENDAR_MCP_MANAGED_OAUTH=true` - Use externally managed sentinel OAuth credentials and hide the account-management flow
 - `ENABLED_TOOLS` - Comma-separated list of tools to enable (see Tool Filtering below)
 
 ### Tool Filtering
@@ -244,7 +245,7 @@ npx @cocal/google-calendar-mcp start --enable-tools list-events,create-event,get
 
 **Available tool names:** `list-calendars`, `list-events`, `search-events`, `get-event`, `list-colors`, `create-event`, `update-event`, `delete-event`, `get-freebusy`, `get-current-time`, `respond-to-event`, `manage-accounts`
 
-**Note:** The `manage-accounts` tool is always available regardless of filtering, as it's needed for authentication management.
+**Note:** The `manage-accounts` tool is always available regardless of filtering unless `GOOGLE_CALENDAR_MCP_MANAGED_OAUTH=true`, where the external credential manager owns connection lifecycle.
 
 When tool filtering is active, the server provides instructions to the AI assistant listing which tools are disabled. This allows the AI to inform users that additional functionality exists but is currently unavailable, without consuming the full token cost of those tool schemas.
 

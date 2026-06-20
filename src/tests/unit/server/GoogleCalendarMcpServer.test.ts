@@ -7,6 +7,8 @@ const state = vi.hoisted(() => ({
   tokenManagerInstance: undefined as any,
   authServerInstance: undefined as any,
   initializeOAuth2Client: vi.fn(async () => ({ id: 'oauth-client' })),
+  isManagedOAuthMode: vi.fn(() => false),
+  isServiceAccountMode: vi.fn(() => false),
   tokenManagerLoadAllAccounts: vi.fn(async () => new Map()),
   tokenManagerGetAccountMode: vi.fn(() => 'normal'),
   tokenManagerValidateTokens: vi.fn(async () => false),
@@ -33,7 +35,9 @@ vi.mock('@modelcontextprotocol/sdk/server/mcp.js', () => ({
 }));
 
 vi.mock('../../../auth/client.js', () => ({
-  initializeOAuth2Client: state.initializeOAuth2Client
+  initializeOAuth2Client: state.initializeOAuth2Client,
+  isManagedOAuthMode: state.isManagedOAuthMode,
+  isServiceAccountMode: state.isServiceAccountMode
 }));
 
 vi.mock('../../../auth/tokenManager.js', () => ({
@@ -94,6 +98,8 @@ describe('GoogleCalendarMcpServer', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    state.isManagedOAuthMode.mockReturnValue(false);
+    state.isServiceAccountMode.mockReturnValue(false);
     state.tokenManagerLoadAllAccounts.mockResolvedValue(new Map());
     state.tokenManagerValidateTokens.mockResolvedValue(false);
     state.tokenManagerGetAccountMode.mockReturnValue('normal');
@@ -131,6 +137,19 @@ describe('GoogleCalendarMcpServer', () => {
     await server.initialize();
 
     expect(state.tokenManagerValidateTokens).not.toHaveBeenCalled();
+  });
+
+  it('does not expose account management in externally managed OAuth mode', async () => {
+    state.isManagedOAuthMode.mockReturnValue(true);
+    const server = new GoogleCalendarMcpServer({
+      transport: { type: 'stdio' },
+      debug: false
+    });
+
+    await server.initialize();
+
+    expect(state.mcpServerInstance.tool).not.toHaveBeenCalled();
+    expect(state.toolRegistryRegisterAll).toHaveBeenCalledTimes(1);
   });
 
   it('starts stdio transport when configured', async () => {

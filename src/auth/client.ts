@@ -12,6 +12,11 @@ export function isServiceAccountMode(): boolean {
   return !!SA_KEY_PATH;
 }
 
+/** True when an external credential proxy owns OAuth connection lifecycle. */
+export function isManagedOAuthMode(): boolean {
+  return process.env.GOOGLE_CALENDAR_MCP_MANAGED_OAUTH === 'true';
+}
+
 /**
  * Create a JWT client from a service account key file with user impersonation.
  * JWT extends OAuth2Client, so it's compatible everywhere OAuth2Client is used.

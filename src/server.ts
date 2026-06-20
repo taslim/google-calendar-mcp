@@ -6,7 +6,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 // Import authentication components
-import { initializeOAuth2Client, isServiceAccountMode } from './auth/client.js';
+import { initializeOAuth2Client, isManagedOAuthMode, isServiceAccountMode } from './auth/client.js';
 import { AuthServer } from './auth/server.js';
 import { TokenManager } from './auth/tokenManager.js';
 
@@ -55,9 +55,10 @@ export class GoogleCalendarMcpServer {
     if (isServiceAccountMode()) {
       this.accounts = new Map([['default', this.oauth2Client]]);
     } else {
-      this.tokenManager = new TokenManager(this.oauth2Client);
+      const tokenManager = new TokenManager(this.oauth2Client);
+      this.tokenManager = tokenManager;
       this.authServer = new AuthServer(this.oauth2Client);
-      this.accounts = await this.tokenManager.loadAllAccounts();
+      this.accounts = await tokenManager.loadAllAccounts();
       await this.handleStartupAuthentication();
     }
 
@@ -77,18 +78,19 @@ export class GoogleCalendarMcpServer {
       return;
     }
 
-    this.accounts = await this.tokenManager.loadAllAccounts();
+    const { tokenManager } = this.getOAuthRuntime();
+    this.accounts = await tokenManager.loadAllAccounts();
     if (this.accounts.size > 0) {
       const accountList = Array.from(this.accounts.keys()).join(', ');
       process.stderr.write(`Valid tokens found for account(s): ${accountList}\n`);
       return;
     }
     
-    const accountMode = this.tokenManager.getAccountMode();
+    const accountMode = tokenManager.getAccountMode();
     
     if (this.config.transport.type === 'stdio') {
       // For stdio mode, check for existing tokens
-      const hasValidTokens = await this.tokenManager.validateTokens(accountMode);
+      const hasValidTokens = await tokenManager.validateTokens(accountMode);
       if (!hasValidTokens) {
         // No existing tokens - server will start but calendar tools won't work
         // User can authenticate via the 'manage-accounts' tool
@@ -98,17 +100,17 @@ export class GoogleCalendarMcpServer {
         // Don't exit - allow server to start so add-account tool is available
       } else {
         process.stderr.write(`Valid ${accountMode} user tokens found.\n`);
-        this.accounts = await this.tokenManager.loadAllAccounts();
+        this.accounts = await tokenManager.loadAllAccounts();
       }
     } else {
       // For HTTP mode, check for tokens but don't block startup
-      const hasValidTokens = await this.tokenManager.validateTokens(accountMode);
+      const hasValidTokens = await tokenManager.validateTokens(accountMode);
       if (!hasValidTokens) {
         process.stderr.write(`⚠️  No valid ${accountMode} user authentication tokens found.\n`);
         process.stderr.write('Visit the server URL in your browser to authenticate, or run "npm run auth" separately.\n');
       } else {
         process.stderr.write(`Valid ${accountMode} user tokens found.\n`);
-        this.accounts = await this.tokenManager.loadAllAccounts();
+        this.accounts = await tokenManager.loadAllAccounts();
       }
     }
   }
@@ -117,8 +119,8 @@ export class GoogleCalendarMcpServer {
     ToolRegistry.registerAll(this.server, this.executeWithHandler.bind(this), this.config);
 
     // Register account management tools separately (they need special context).
-    // Skip in SA mode — account management doesn't apply.
-    if (!isServiceAccountMode()) {
+    // Skip when credentials are owned by a service account or external proxy.
+    if (!isServiceAccountMode() && !isManagedOAuthMode()) {
       this.registerAccountManagementTools();
     }
   }
@@ -130,15 +132,16 @@ export class GoogleCalendarMcpServer {
    * - Needs access to authServer, tokenManager, etc.
    */
   private registerAccountManagementTools(): void {
+    const { authServer, tokenManager } = this.getOAuthRuntime();
     // Use arrow functions to keep `this` reference current after reloadAccounts()
     const self = this;
     const serverContext: ServerContext = {
       oauth2Client: this.oauth2Client,
-      tokenManager: this.tokenManager,
-      authServer: this.authServer,
+      tokenManager,
+      authServer,
       get accounts() { return self.accounts; },
       reloadAccounts: async () => {
-        this.accounts = await this.tokenManager.loadAllAccounts();
+        this.accounts = await tokenManager.loadAllAccounts();
         return this.accounts;
       }
     };
@@ -162,16 +165,17 @@ export class GoogleCalendarMcpServer {
   }
 
   private async ensureAuthenticated(): Promise<void> {
-    if (!this.tokenManager) return; // SA mode — accounts set at init
-    const availableAccounts = await this.tokenManager.loadAllAccounts();
+    const tokenManager = this.tokenManager;
+    if (!tokenManager) return; // SA mode — accounts set at init
+    const availableAccounts = await tokenManager.loadAllAccounts();
     if (availableAccounts.size > 0) {
       this.accounts = availableAccounts;
       return;
     }
 
     // Check if we already have valid tokens
-    if (await this.tokenManager.validateTokens()) {
-      const refreshedAccounts = await this.tokenManager.loadAllAccounts();
+    if (await tokenManager.validateTokens()) {
+      const refreshedAccounts = await tokenManager.loadAllAccounts();
       if (refreshedAccounts.size > 0) {
         this.accounts = refreshedAccounts;
         return;
@@ -188,7 +192,8 @@ export class GoogleCalendarMcpServer {
 
     // For HTTP mode, try to start auth server if not already running
     try {
-      const authSuccess = await this.authServer.start(false); // openBrowser = false for HTTP mode
+      const { authServer } = this.getOAuthRuntime();
+      const authSuccess = await authServer.start(false); // openBrowser = false for HTTP mode
       
       if (!authSuccess) {
         throw new McpError(
@@ -205,6 +210,13 @@ export class GoogleCalendarMcpServer {
       }
       throw new McpError(ErrorCode.InvalidRequest, "Authentication required. Please run 'npm run auth' to authenticate.");
     }
+  }
+
+  private getOAuthRuntime(): { tokenManager: TokenManager; authServer: AuthServer } {
+    if (!this.tokenManager || !this.authServer) {
+      throw new Error('OAuth runtime is unavailable in service-account mode');
+    }
+    return { tokenManager: this.tokenManager, authServer: this.authServer };
   }
 
   private async executeWithHandler(handler: any, args: any): Promise<{ content: Array<{ type: "text"; text: string }> }> {
