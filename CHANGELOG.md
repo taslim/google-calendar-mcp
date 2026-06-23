@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.2](https://github.com/nspady/google-calendar-mcp/compare/v2.6.1...v2.6.2) (2026-06-01)
+
+
+### Bug Fixes
+
+* replace z.string().email() with RE2-safe regex ([#184](https://github.com/nspady/google-calendar-mcp/issues/184)) ([0c5bf49](https://github.com/nspady/google-calendar-mcp/commit/0c5bf490da97afb534bfd823414221d25efcc524))
+
 ## [2.6.1](https://github.com/nspady/google-calendar-mcp/compare/v2.6.0...v2.6.1) (2026-03-02)
 
 

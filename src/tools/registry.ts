@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { BaseToolHandler } from "../handlers/core/BaseToolHandler.js";
 import { ALLOWED_EVENT_FIELDS } from "../utils/field-mask-builder.js";
@@ -222,6 +223,11 @@ const singleAccountSchema = z.string()
 // Account ID validation regex
 const accountIdRegex = /^[a-z0-9_-]{1,64}$/;
 
+// Email validation regex - RE2-safe (no lookaround). zod's .email() emits a
+// JSON Schema pattern with negative lookahead that RE2-based validators
+// (OpenAI, Gemini) reject; the Calendar API validates emails server-side anyway.
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 // Multi-account schema - for read operations (list, search, get)
 const multiAccountSchema = z.preprocess(
   parseJsonStringArray,
@@ -355,7 +361,7 @@ export const ToolSchemas = {
     ),
     location: z.string().optional().describe("Location of the event"),
     attendees: z.array(z.object({
-      email: z.string().email().describe("Email address of the attendee"),
+      email: z.string().regex(emailRegex, "Invalid email address").describe("Email address of the attendee"),
       displayName: z.string().optional().describe("Display name of the attendee"),
       optional: z.boolean().optional().describe("Whether this is an optional attendee"),
       responseStatus: z.enum(RESPONSE_STATUS_VALUES).optional().describe("Attendee's response status"),
@@ -514,7 +520,7 @@ export const ToolSchemas = {
       description: z.string().optional().describe("Description/notes for the event"),
       location: z.string().optional().describe("Location of the event"),
       attendees: z.array(z.object({
-        email: z.string().email().describe("Email address of the attendee"),
+        email: z.string().regex(emailRegex, "Invalid email address").describe("Email address of the attendee"),
         displayName: z.string().optional().describe("Display name of the attendee"),
         optional: z.boolean().optional().describe("Whether this is an optional attendee"),
         responseStatus: z.enum(["needsAction", "declined", "tentative", "accepted"]).optional().describe("Attendee's response status"),
@@ -578,7 +584,7 @@ export const ToolSchemas = {
     timeZone: z.string().optional().describe("Updated timezone as IANA Time Zone Database name. If not provided, uses the calendar's default timezone."),
     location: z.string().optional().describe("Updated location"),
     attendees: z.array(z.object({
-      email: z.string().email().describe("Email address of the attendee")
+      email: z.string().regex(emailRegex, "Invalid email address").describe("Email address of the attendee")
     })).optional().describe("Updated attendee list"),
     colorId: z.string().optional().describe("Updated color ID"),
     reminders: remindersSchema,
@@ -767,12 +773,46 @@ export type RespondToEventInput = ToolInputs['respond-to-event'];
 
 interface ToolDefinition {
   name: keyof typeof ToolSchemas;
+  title: string;
   description: string;
+  annotations: ToolAnnotations;
   schema: z.ZodType<any>;
   handler: new () => BaseToolHandler;
   handlerFunction?: (args: any) => Promise<any>;
 }
 
+const READ_ONLY_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: true,
+  openWorldHint: false
+};
+
+const WRITE_NON_DESTRUCTIVE_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: false
+};
+
+const WRITE_DESTRUCTIVE_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: false,
+  openWorldHint: false
+};
+
+const WRITE_DESTRUCTIVE_IDEMPOTENT_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: true,
+  openWorldHint: false
+};
+
+const WRITE_NON_DESTRUCTIVE_IDEMPOTENT_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false
+};
 
 export class ToolRegistry {
   private static extractSchemaShape(schema: z.ZodType<any>): any {
@@ -790,13 +830,17 @@ export class ToolRegistry {
   private static tools: ToolDefinition[] = [
     {
       name: "list-calendars",
+      title: "List Calendars",
       description: "List all available calendars",
+      annotations: READ_ONLY_ANNOTATIONS,
       schema: ToolSchemas['list-calendars'],
       handler: ListCalendarsHandler
     },
     {
       name: "list-events",
+      title: "List Calendar Events",
       description: "List events from one or more calendars. Supports both calendar IDs and calendar names.",
+      annotations: READ_ONLY_ANNOTATIONS,
       schema: ToolSchemas['list-events'],
       handler: ListEventsHandler,
       handlerFunction: async (args: ListEventsInput & { calendarId: string | string[] }) => {
@@ -863,61 +907,81 @@ export class ToolRegistry {
     },
     {
       name: "search-events",
+      title: "Search Calendar Events",
       description: "Search for events in a calendar by text query.",
+      annotations: READ_ONLY_ANNOTATIONS,
       schema: ToolSchemas['search-events'],
       handler: SearchEventsHandler
     },
     {
       name: "get-event",
+      title: "Get Event Details",
       description: "Get details of a specific event by ID.",
+      annotations: READ_ONLY_ANNOTATIONS,
       schema: ToolSchemas['get-event'],
       handler: GetEventHandler
     },
     {
       name: "list-colors",
+      title: "List Calendar Colors",
       description: "List available color IDs and their meanings for calendar events",
+      annotations: READ_ONLY_ANNOTATIONS,
       schema: ToolSchemas['list-colors'],
       handler: ListColorsHandler
     },
     {
       name: "create-event",
+      title: "Create Calendar Event",
       description: "Create a new calendar event.",
+      annotations: WRITE_NON_DESTRUCTIVE_ANNOTATIONS,
       schema: ToolSchemas['create-event'],
       handler: CreateEventHandler
     },
     {
       name: "create-events",
+      title: "Create Calendar Events (Bulk)",
       description: "Create multiple calendar events in bulk. Accepts shared defaults (account, calendarId, timeZone) that apply to all events, with per-event overrides. Skips conflict and duplicate detection for speed.",
+      annotations: WRITE_NON_DESTRUCTIVE_ANNOTATIONS,
       schema: ToolSchemas['create-events'],
       handler: CreateEventsHandler
     },
     {
       name: "update-event",
+      title: "Update Calendar Event",
       description: "Update an existing calendar event with recurring event modification scope support.",
+      annotations: WRITE_DESTRUCTIVE_IDEMPOTENT_ANNOTATIONS,
       schema: ToolSchemas['update-event'],
       handler: UpdateEventHandler
     },
     {
       name: "delete-event",
+      title: "Delete Calendar Event",
       description: "Delete a calendar event.",
+      annotations: WRITE_DESTRUCTIVE_ANNOTATIONS,
       schema: ToolSchemas['delete-event'],
       handler: DeleteEventHandler
     },
     {
       name: "get-availability",
+      title: "Get Calendar Availability",
       description: "Get unified availability across calendars. Fetches events, applies configured filters, then returns merged busy blocks and computed free slots. Use this instead of manually computing availability from list-events.",
+      annotations: READ_ONLY_ANNOTATIONS,
       schema: ToolSchemas['get-availability'],
       handler: GetAvailabilityHandler
     },
     {
       name: "get-current-time",
+      title: "Get Current Time",
       description: "Get the current date and time. Call this FIRST before creating, updating, or searching for events to ensure you have accurate date context for scheduling.",
+      annotations: READ_ONLY_ANNOTATIONS,
       schema: ToolSchemas['get-current-time'],
       handler: GetCurrentTimeHandler
     },
     {
       name: "respond-to-event",
+      title: "Respond to Event Invitation",
       description: "Respond to a calendar event invitation with Accept, Decline, Maybe (Tentative), or No Response.",
+      annotations: WRITE_NON_DESTRUCTIVE_IDEMPOTENT_ANNOTATIONS,
       schema: ToolSchemas['respond-to-event'],
       handler: RespondToEventHandler
     }
@@ -1052,8 +1116,10 @@ export class ToolRegistry {
     server.registerTool(
         tool.name,
         {
+          title: tool.title,
           description: tool.description,
-          inputSchema: this.extractSchemaShape(tool.schema)
+          inputSchema: this.extractSchemaShape(tool.schema),
+          annotations: tool.annotations
         },
         async (args: any) => {
           // Preprocess: Normalize datetime fields (convert object format to string format)
